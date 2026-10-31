@@ -1,6 +1,6 @@
 /* Fousty — service worker : l'appli s'ouvre même avec un réseau faible.
    Les données passent toujours par le serveur (jamais mises en cache ici). */
-const CACHE = "carnet-2017729816";
+const CACHE = "carnet-a282f5ed98";
 const SHELL = ["./", "index.html", "config.js", "supabase.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

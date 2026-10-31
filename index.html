@@ -636,6 +636,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
 .sk-bd .sk-s{font-family:"Comic Neue","Comic Sans MS",sans-serif;font-weight:700}
 .sk-bd .sk-dots i{border:2px solid #111111;border-radius:2px}
 .skin-news p{margin:0}
+.sk-cur{cursor:default}
 </style>
 </head>
 <body>
@@ -698,7 +699,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
   var SKIN_BY={};SKINS.forEach(function(x){SKIN_BY[x.id]=x});
   var TH_DEF={skin:"box",mode:"auto"},LS_SKIN="fousty-theme",skinKey=null;
   var MODES=[["auto","Auto","comme ton téléphone"],["light","Clair",""],["dark","Sombre",""]];
-  var S={tab:"alim",cur:todayKey(),week:null,days:{},favs:[],settings:clone(DEF_SETTINGS),pick:null,saveMeal:null,
+  var S={tab:"alim",skinEdit:null,cur:todayKey(),week:null,days:{},favs:[],settings:clone(DEF_SETTINGS),pick:null,saveMeal:null,
     uid:null,base:null,setup:null,needSetup:false,readOnly:false,myFoods:[],label:null,sampleImg:false,undo:[],newSupp:"",newEve:"",
     db:null,status:"loading",errMsg:"",sheet:null,q:"",free:{name:"",kcal:"",prot:"",fruit:false,legume:false,fav:false},
     openEntry:null,newFav:{name:"",kcal:"",prot:"",slot:"diner",fruit:false,legume:false},editFav:null,confirmDel:null,copyText:null,
@@ -714,7 +715,8 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
   function thOk(t){return t&&typeof t==="object"&&SKIN_BY[t.skin]?{skin:t.skin,mode:t.mode==="light"||t.mode==="dark"?t.mode:"auto"}:null}
   function lsTheme(){try{return JSON.parse(localStorage.getItem(LS_SKIN)||"null")}catch(e){return null}}
   /* priorité : aperçu du questionnaire d'inscription, puis le compte, puis le dernier style vu sur ce téléphone */
-  function curTheme(){return thOk(S.wiz&&S.wiz.theme)||thOk(S.settings.theme)||thOk(lsTheme())||clone(TH_DEF)}
+  function curTheme(){return thOk(S.wiz&&S.wiz.theme)||thOk(S.skinEdit&&S.skinEdit.theme)||thOk(S.settings.theme)||thOk(lsTheme())||clone(TH_DEF)}
+  function modeLabel(t){return t.skin==="neon"?"toujours sombre":t.mode==="auto"?"clair ou sombre comme ton téléphone":t.mode==="light"?"toujours clair":"toujours sombre"}
   function fontUrl(q){return "https://fonts.googleapis.com/css2?family="+q+"&display=swap"}
   function applySkin(){var t=curTheme(),key=t.skin+"/"+t.mode;if(key===skinKey)return;skinKey=key;
     var de=document.documentElement,sk=SKIN_BY[t.skin],md=t.skin==="neon"?"dark":t.mode,ff=window.FOUSTY_FONTS||{};
@@ -736,7 +738,11 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     if(t.skin==="neon")h+='<p class="hint" style="margin:0">Néon est toujours en mode sombre.</p>';
     else h+='<div class="lab">Clair ou sombre</div><div class="seg" role="group" aria-label="Clair ou sombre">'+MODES.map(function(m){return '<button data-a="skin-mode" data-v="'+m[0]+'" aria-pressed="'+(t.mode===m[0])+'">'+m[1]+(m[2]?'<small>'+m[2]+'</small>':'')+'</button>'}).join("")+'</div>';
     loadPreviewFonts();return h}
-  function styleHtml(){return '<section class="card" id="mon-style" aria-label="Mon style"><div class="card-h"><span class="tag blue">Mon style</span><span class="hint">change quand tu veux</span></div>'+skinPicker()+'</section>'}
+  /* Réglages : replié = style actuel + « Changer de style » ; déplié = les 5 styles en aperçu direct, Valider enregistre, Annuler remet l'ancien */
+  function styleHtml(){var h='<section class="card" id="mon-style" aria-label="Mon style"><div class="card-h"><span class="tag blue">Mon style</span></div>';
+    if(S.skinEdit)return h+skinPicker()+'<div class="row2"><button class="btn ghost" data-a="skin-cancel">Annuler</button><button class="btn" data-a="skin-ok">Valider</button></div></section>';
+    var t=curTheme(),x=SKIN_BY[t.skin];
+    return h+'<div class="sk sk-'+x.id+' sk-cur"><span class="sk-txt"><span class="sk-n">'+esc(x.name)+'</span><span class="sk-s">'+esc(cap(modeLabel(t)))+'</span></span><span class="sk-dots" aria-hidden="true">'+x.dots.map(function(c){return '<i style="background:'+c+';color:'+c+'"></i>'}).join("")+'</span></div><button class="btn ghost" data-a="skin-edit" aria-expanded="false">Changer de style</button></section>'}
   /* comptes créés avant le choix du style : une seule annonce ; « Garder » enregistre le style actuel et la fait disparaître partout */
   function skinNews(){if(S.status!=="ok"||!S.uid||S.needSetup||S.settings.theme!=null)return "";
     return '<section class="card skin-news" aria-label="Nouveau : ton style"><div class="card-h"><span class="tag">Nouveau</span></div><p>Choisis le style de ton carnet : 5 ambiances, du tableau de box à la BD.</p><div class="row2"><button class="btn ghost" data-a="skin-keep">Garder celui-ci</button><button class="btn" data-a="skin-go">Voir les styles</button></div></section>'}
@@ -1639,7 +1645,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
 
   document.addEventListener("click",function(e){
     var b=e.target.closest("[data-a]");if(!b||b.disabled)return;var a=b.dataset.a,k=S.cur,day;
-    if(a==="tab"){S.tab=b.dataset.v;S.copyText=null;S.confirmDel=null;S.confirmLift=null;render();window.scrollTo(0,0)}
+    if(a==="tab"){S.tab=b.dataset.v;S.skinEdit=null;S.copyText=null;S.confirmDel=null;S.confirmLift=null;render();window.scrollTo(0,0)}
     else if(a==="prev"){S.cur=addDays(S.cur,-1);S.openEntry=null;render()}
     else if(a==="next"){S.cur=addDays(S.cur,1);S.openEntry=null;render()}
     else if(a==="today"){S.cur=todayKey();render()}
@@ -1672,9 +1678,12 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     else if(a==="wz-finish"){wizFinish()}
     else if(a==="skin"||a==="skin-mode"){var th=curTheme();if(a==="skin")th.skin=b.dataset.v;else th.mode=b.dataset.v;th=thOk(th);if(!th)return;
       if(S.wiz&&S.wiz.mode==="create"){S.wiz.theme=th;render();return}
-      S.settings.theme=th;saveSettings(a==="skin"?"Style : "+SKIN_BY[th.skin].name:"Mode : "+MODES.filter(function(m){return m[0]===th.mode})[0][1].toLowerCase());render()}
+      if(!S.skinEdit)S.skinEdit={};S.skinEdit.theme=th;render()}
+    else if(a==="skin-edit"){S.skinEdit={theme:curTheme()};render()}
+    else if(a==="skin-cancel"){S.skinEdit=null;render();var mc=document.getElementById("mon-style");if(mc)mc.scrollIntoView({block:"nearest"})}
+    else if(a==="skin-ok"){var nt=thOk(S.skinEdit&&S.skinEdit.theme);S.skinEdit=null;if(nt){S.settings.theme=nt;saveSettings("Style : "+SKIN_BY[nt.skin].name)}render();var mo=document.getElementById("mon-style");if(mo)mo.scrollIntoView({block:"nearest"})}
     else if(a==="skin-keep"){S.settings.theme=curTheme();saveSettings("Style conservé : "+SKIN_BY[S.settings.theme.skin].name);render()}
-    else if(a==="skin-go"){S.tab="plats";render();var ms0=document.getElementById("mon-style");if(ms0)ms0.scrollIntoView({block:"start"})}
+    else if(a==="skin-go"){S.tab="plats";S.skinEdit={theme:curTheme()};render();var ms0=document.getElementById("mon-style");if(ms0)ms0.scrollIntoView({block:"start"})}
     else if(a==="wiz-edit"){S.wiz=newWiz("edit");render();window.scrollTo(0,0)}
     else if(a==="set-sport"){var pr=clone(profile()||{}),ps=Array.isArray(pr.sports)&&pr.sports.length?pr.sports.slice():[],pi=ps.indexOf(b.dataset.v);if(pi>=0)ps.splice(pi,1);else ps.push(b.dataset.v);pr.sports=ps;S.settings.profile=pr;saveSettings("Sports enregistrés");render()}
     else if(a==="add-sess"){snap(k,"ajout séance");day=ensureDay(k);var sarr=ensureSessions(day),pd=profile()&&num(profile().duration)>0?num(profile().duration):null,nid="s"+uid();sarr.push({id:nid,sport:b.dataset.s,dur:pd,dist:null,dplus:null,text:"",result:""});day.training=true;S.sessOpen=nid;scheduleSave(k,0);render()}
@@ -1941,7 +1950,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
   function startUser(u){if(S.uid===u.id)return;resetUser();S.uid=u.id;S.email=u.email||"";S.base="carnet";S.status="loading";S.auth=null;
     S.db=makeDb(SB,u.id);subscribeAll();reload();render()}
   function reload(){if(!S.db)return;var db=S.db;db.load().then(function(){if(S.db===db&&(S.status==="offline"||S.status==="error"||S.status==="slow")){S.status="ok";render()}},function(e){if(S.db!==db||S.status==="auth")return;S.status=e&&e.code==="unavailable"?"offline":(S.status==="ok"?"ok":"error");render()})}
-  function resetUser(){S.uid=null;S.db=null;S.days={};S.favs=[];S.liftsDb=[];S.lifts=[];S.myFoods=[];S.recaps={};S.recapBusy=null;S.recapMsg=null;rebuildFoods();S.settings=clone(DEF_SETTINGS);S.needSetup=false;S.wiz=null;S.undo=[];S.sheet=null;S.liftSheet=false;S.tab="alim";S.confirmAcct=null;renderUndo()}
+  function resetUser(){S.uid=null;S.db=null;S.days={};S.favs=[];S.liftsDb=[];S.lifts=[];S.myFoods=[];S.recaps={};S.recapBusy=null;S.recapMsg=null;rebuildFoods();S.settings=clone(DEF_SETTINGS);S.needSetup=false;S.wiz=null;S.undo=[];S.sheet=null;S.liftSheet=false;S.tab="alim";S.confirmAcct=null;S.skinEdit=null;renderUndo()}
   async function init(){
     render();renderUndo();
     if("serviceWorker" in navigator){try{navigator.serviceWorker.register("sw.js")}catch(e){}}
