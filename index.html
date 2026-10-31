@@ -274,6 +274,16 @@ textarea#set-coach{resize:vertical;min-height:80px}
 .supp-edit .supp button{font-size:16px;line-height:1;padding:0 2px;color:inherit}
 .supp-add{display:grid;grid-template-columns:1fr auto;gap:8px}
 .supp-add .btn{padding:10px 14px}
+/* check du soir */
+.eve-list{display:flex;flex-direction:column;gap:6px}
+.eve-it{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:8px 12px;border-radius:12px;background:var(--surface2);color:var(--ink);font-weight:600;text-align:left}
+.eve-it.on{background:var(--good-soft);color:var(--good)}
+.eve-box{flex:none;width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:14px;font-weight:800;line-height:1}
+.eve-it.on .eve-box,.eve-done .eve-box{border-color:var(--good);background:var(--good);color:var(--surface)}
+.eve-done{display:flex;align-items:center;gap:10px;margin:0;font-weight:700;color:var(--good)}
+.eve-more summary{font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer;padding:4px 0}
+.eve-more .eve-list{margin-top:6px}
+.eve.eve-ok .pill{color:var(--good);background:var(--good-soft)}
 .seg.five button{padding:7px 2px;font-size:15px}
 .seg.five small{font-size:10.5px}
 .seg.seven button{padding:9px 0;font-size:12.5px}
@@ -306,8 +316,9 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
 .alc{color:var(--ink)}
 .warn-t{color:var(--warn)}
 .alc-dot i{background:var(--warn)!important}
-.undo{position:fixed;z-index:25;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:6px;max-width:min(70vw,320px);background:var(--ink);color:var(--surface);border-radius:99px;padding:9px 14px;font-size:13.5px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.18)}
-.undo small{font-weight:500;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* Annuler : pastille ronde compacte (48 px) collée au bord droit, pour ne plus masquer les boutons « + Ajouter » ; le détail est dans aria-label / title */
+.undo{position:fixed;z-index:25;right:max(8px,env(safe-area-inset-right,0px));bottom:calc(72px + env(safe-area-inset-bottom,0px));display:grid;place-items:center;width:48px;height:48px;padding:0;background:var(--ink);color:var(--surface);border-radius:50%;font-size:22px;font-weight:700;line-height:1;box-shadow:0 4px 16px rgba(0,0,0,.18)}
+.undo small{display:none}
 .undo:disabled{opacity:.35;box-shadow:none}
 .hundo{width:40px;height:38px;border-radius:10px;background:var(--surface2);font-size:18px;font-weight:700}
 .setup-intro{margin:0;line-height:1.5}
@@ -405,9 +416,11 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
   function num(v){if(v==null)return NaN;return parseFloat(String(v).replace(",","."))}
   function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
 
-  var DEF_SETTINGS={kcalTrain:2300,kcalRest:2000,protMin:150,protMax:170,cantineMargin:10,supps:["Créatine"],weighDays:[1,3,0],profile:null,coachNote:""};
+  /* check du soir : questions par défaut (modifiables dans Réglages), stockées par libellé dans days/<date>.evening.done */
+  var EVE_DEFAULT=["Sac de sport prêt","Shaker prêt","Repas de demain prévu","Appart rangé","Journée de demain en tête"];
+  var DEF_SETTINGS={kcalTrain:2300,kcalRest:2000,protMin:150,protMax:170,cantineMargin:10,supps:["Créatine"],weighDays:[1,3,0],profile:null,coachNote:"",evening:EVE_DEFAULT.slice(),eveningHour:19};
   var S={tab:"alim",cur:todayKey(),week:null,days:{},favs:[],settings:clone(DEF_SETTINGS),pick:null,saveMeal:null,
-    uid:null,base:null,setup:null,needSetup:false,readOnly:false,myFoods:[],label:null,sampleImg:false,undo:[],newSupp:"",
+    uid:null,base:null,setup:null,needSetup:false,readOnly:false,myFoods:[],label:null,sampleImg:false,undo:[],newSupp:"",newEve:"",
     db:null,status:"loading",errMsg:"",sheet:null,q:"",free:{name:"",kcal:"",prot:"",fruit:false,legume:false,fav:false},
     openEntry:null,newFav:{name:"",kcal:"",prot:"",slot:"diner",fruit:false,legume:false},editFav:null,confirmDel:null,copyText:null,
     lifts:[],liftsDb:[],liftOpen:null,liftSheet:false,liftDraft:null,confirmLift:null,sample:null,sampleOff:false,estBusy:null,estMsg:null};
@@ -419,6 +432,12 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
   function setDoc(){return S.db.doc(S.base)}
   function weighDays(){var w=S.settings.weighDays;return Array.isArray(w)?w:[1,3,0]}
   function suppList(){var s=S.settings.supps;return Array.isArray(s)?s:[]}
+  function eveList(){var e=S.settings.evening;return Array.isArray(e)?e:EVE_DEFAULT}
+  function eveHour(){var h=parseInt(S.settings.eveningHour,10);return h>=0&&h<=23?h:19}
+  function eveState(day){var dn=(day&&day.evening&&day.evening.done)||{},l=eveList(),ok=l.filter(function(x){return dn[x]});
+    return {n:ok.length,total:l.length,left:l.filter(function(x){return !dn[x]}),complete:l.length>0&&ok.length===l.length,started:ok.length>0}}
+  /* aujourd'hui à partir de l'heure choisie ; hier pour rattraper un oubli ; avant, seulement si le check a été commencé */
+  function showEve(k,day){if(!eveList().length)return false;var t=todayKey();if(k>t)return false;if(k===t)return new Date().getHours()>=eveHour();return k===addDays(t,-1)||eveState(day).started}
   function defDay(k){var dw=parseKey(k).getDay();return {date:k,items:[],training:dw!==0,wod:{type:dw===0?"repos":"wod",text:"",result:""},weight:null,supps:{},cantine:{}}}
   function getDay(k){return S.days[k]||defDay(k)}
   function ensureDay(k){if(!S.days[k])S.days[k]=defDay(k);var d=S.days[k];if(!d.items)d.items=[];if(!d.cantine||typeof d.cantine!=="object")d.cantine={};if(!d.supps||typeof d.supps!=="object")d.supps={};if(!d.wod)d.wod={type:"wod",text:"",result:""};return d}
@@ -434,7 +453,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     else if(u.t==="doc"&&S.db){var d=clone(u.data);delete d.id;writeDoc(S.db.doc(u.path),d).catch(showErr)}
     toast("Annulé : "+u.label);render()}
   function renderUndo(){var el=document.getElementById("undo");if(!el)return;var u=S.undo[S.undo.length-1];
-    el.disabled=!u;el.innerHTML='<span aria-hidden="true">↶</span> Annuler'+(u?'<small>'+esc(u.label)+'</small>':'');el.setAttribute("aria-label",u?"Annuler : "+u.label:"Rien à annuler")}
+    el.disabled=!u;el.innerHTML='<span aria-hidden="true">↶</span>';el.setAttribute("aria-label",u?"Annuler : "+u.label:"Rien à annuler");el.title=u?"Annuler : "+u.label:"Rien à annuler"}
   function cmPct(){var v=+S.settings.cantineMargin;return isNaN(v)||v<0?0:v}
   function totals(day){var k=0,p=0,m=0,cm=cmPct();(day.items||[]).forEach(function(i){var q=i.qty||1,ik=(+i.kcal||0)*q;k+=ik;p+=(+i.prot||0)*q;if(cm&&day.date&&isCantine(day,i.slot))m+=ik*cm/100});return {k:k+m,p:p,m:m,raw:k}}
   function slotMargin(day,slot){var cm=cmPct();if(!cm||!isCantine(day,slot))return 0;return (day.items||[]).filter(function(i){return i.slot===slot}).reduce(function(a,i){return a+(+i.kcal||0)*(i.qty||1)},0)*cm/100}
@@ -532,6 +551,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     var k=S.cur,day=getDay(k),d=parseKey(k),t=totals(day),c=checks(day),tg=target(day),isToday=k===todayKey();
     var st=S.settings,h="";
     h+=dayHead(k);
+    if(showEve(k,day))h+=eveCard(day);
     h+='<div class="seg" role="group" aria-label="Type de journée"><button data-a="train" data-v="1" aria-pressed="'+!!day.training+'">Entraînement<small>cible '+fmt(st.kcalTrain)+' kcal</small></button><button data-a="train" data-v="0" aria-pressed="'+!day.training+'">Repos<small>cible '+fmt(st.kcalRest)+' kcal</small></button></div>';
     var rem=tg-t.k,kh;
     if(t.k===0)kh="Rien de noté pour l'instant";else if(rem>150)kh="Il reste ~"+fmt(rem)+" kcal";else if(rem>=-150)kh="Dans la cible";else kh=fmt(-rem)+" kcal au-dessus de la cible";
@@ -565,6 +585,12 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
       h+='</section>'});
     h+='</div>';
     return h}
+  function eveCard(day){var es=eveState(day),dn=(day.evening&&day.evening.done)||{};
+    var list='<div class="eve-list" role="group" aria-label="Questions du check du soir">'+eveList().map(function(x){var on=!!dn[x];return '<button class="eve-it'+(on?' on':'')+'" data-a="eve" data-n="'+esc(x)+'" aria-pressed="'+on+'"><span class="eve-box" aria-hidden="true">'+(on?'✓':'')+'</span><span>'+esc(x)+'</span></button>'}).join("")+'</div>';
+    var h='<section class="card eve'+(es.complete?' eve-ok':'')+'" aria-label="Check du soir"><div class="card-h"><span class="tag blue">Check du soir</span><span class="pill">'+es.n+'/'+es.total+'</span></div>';
+    if(es.complete)h+='<p class="eve-done"><span class="eve-box" aria-hidden="true">✓</span>Prêt pour demain. Bonne soirée !</p><details class="eve-more"><summary>Revoir la liste</summary>'+list+'</details>';
+    else h+=list+'<p class="hint" style="margin:0">'+(es.started?'Reste : '+esc(es.left.join(", "))+'.':'Touche chaque point quand c\'est fait. Les questions se changent dans Réglages.')+'</p>';
+    return h+'</section>'}
   function dayHead(k){var d=parseKey(k),isToday=k===todayKey(),h='';
     h+='<div class="dayhead"><button class="ic" data-a="prev" aria-label="Jour précédent">‹</button><div class="dh-mid"><div class="eyebrow">'+(isToday?"Aujourd'hui":DOW[d.getDay()])+'</div><h1 class="dh-title">'+cap(DOW[d.getDay()])+' '+d.getDate()+' '+MON[d.getMonth()]+'</h1></div><button class="ic" data-a="next" aria-label="Jour suivant">›</button></div>';
     if(!isToday)h+='<button class="linkbtn" data-a="today">Revenir à aujourd\'hui</button>';
@@ -716,6 +742,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
       if(lg){h+='<span class="pbar"><i class="'+(t.p>=st.protMin?"ok":"")+'" style="width:'+Math.min(100,t.p/maxP*100).toFixed(1)+'%"></i><span class="tick" style="left:'+(st.protMin/maxP*100).toFixed(1)+'%"></span></span><span class="dmeta">';
         [["pdj","Petit-déj"],["fruit","Fruit"],["legume","Légume"]].forEach(function(x){h+='<span class="dot'+(c[x[0]]?' on':'')+'"><i></i>'+x[1]+'</span>'});
         if(sl.length){var tk=sl.filter(function(nm){return c.supps[nm]}).length;h+='<span class="dot'+(tk===sl.length?' on':'')+'"><i></i>Compl. '+tk+'/'+sl.length+'</span>'}
+        var es=eveState(d);if(es.total&&d.evening)h+='<span class="dot'+(es.complete?' on':'')+'"><i></i>Soir '+es.n+'/'+es.total+'</span>';
         var da=dayAlc(d);if(da>0)h+='<span class="dot alc-dot"><i></i>'+fmt1(da/10)+' v. alcool</span>';
         var cs=cantineSlots(d);if(cs.length)h+='<span class="ctag" style="margin-left:0">cantine '+cs.map(function(s){return SLOT_LABEL[s].toLowerCase()}).join(", ")+'</span>';
         h+='</span>'}else h+='<span class="hint">Rien de noté</span>';
@@ -729,10 +756,19 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
       h+='</ul></section>'}
     h+='<h2 class="sec-title">Santé</h2>'+weightCard(ws)+formeCard(keys);
     if(sl.length)h+='<section class="card" aria-label="Compléments de la semaine"><div class="card-h"><span class="tag blue">Compléments</span></div><div class="habits">'+sl.map(function(nm){return '<div class="hab"><b>'+(scnt[nm]||0)+'/7</b>'+esc(nm)+'</div>'}).join("")+'</div></section>';
+    var ew=eveWeek(keys);
+    if(ew)h+='<h2 class="sec-title">Routine</h2><section class="card" aria-label="Check du soir de la semaine"><div class="card-h"><span class="tag blue">Check du soir</span></div><div class="wsum"><div><b class="num">'+ew.ok+'/'+ew.n+'</b><span>soir'+(ew.n>1?'s complets':' complet')+'</span></div></div>'+(ew.miss?'<p class="hint" style="margin:0">Le plus souvent oublié : <b>'+esc(ew.miss)+'</b> ('+ew.missN+' fois).</p>':'')+'</section>';
     h+='<button class="btn ghost" data-a="copy">Copier le récap de la semaine</button>';
     if(S.copyText!=null)h+='<label class="fl" for="copybox">Sélectionne et copie ce texte</label><textarea id="copybox" class="copybox" readonly>'+esc(S.copyText)+'</textarea>';
     h+='<p class="hint" style="margin:0">Le récap brut sert à en parler avec Claude, ou à garder une trace.</p>';
     return h}
+  /* soirs comptés : les jours passés de la semaine (à partir du premier check jamais fait, pour ne pas compter
+     comme oublis les jours d'avant), plus aujourd'hui une fois le check complet ; rien si le check n'a pas servi cette semaine */
+  function eveWeek(keys){if(!eveList().length||!keys.some(function(k){return S.days[k]&&S.days[k].evening}))return null;
+    var t=todayKey(),first=Object.keys(S.days).filter(function(k){return S.days[k]&&S.days[k].evening}).sort()[0],n=0,ok=0,miss={};
+    keys.forEach(function(k){if(k>t||k<first)return;var es=eveState(S.days[k]);if(k===t&&!es.complete)return;n++;if(es.complete)ok++;es.left.forEach(function(x){miss[x]=(miss[x]||0)+1})});
+    var top=Object.keys(miss).sort(function(a,b){return miss[b]-miss[a]})[0];
+    return {n:n,ok:ok,miss:top||null,missN:top?miss[top]:0}}
   function weekSessions(keys){var out=[];keys.forEach(function(k){var d=S.days[k];if(d)daySessions(d).forEach(function(x){out.push({k:k,x:x})})});return out}
   function sportCard(keys){var ss=weekSessions(keys),h='<section class="card" aria-label="Séances de la semaine"><div class="card-h"><span class="tag blue">Séances</span></div>';
     if(!ss.length)return h+'<p class="muted" style="margin:0">Aucune séance notée cette semaine.</p></section>';
@@ -761,6 +797,7 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     if(n)lines.push("Moyenne sur "+n+" jour"+(n>1?"s":"")+" : "+fmt(sk/n)+" kcal et "+fmt(sp/n)+" g de protéines (cible "+st.protMin+"-"+st.protMax+" g).");
     var ta=keys.reduce(function(x,k){return x+(S.days[k]?dayAlc(S.days[k]):0)},0);lines.push("Alcool de la semaine : "+uLabel(ta)+".");
     var wa=weekAvgs(ws,2);if(wa[1].avg!=null)lines.push("Poids moyen : "+fmt1(wa[1].avg)+" kg ("+wa[1].n+" pesée"+(wa[1].n>1?"s":"")+")"+(wa[0].avg!=null?", "+sgn(wa[1].avg-wa[0].avg)+" kg vs semaine précédente ("+sgn((wa[1].avg-wa[0].avg)/wa[0].avg*100)+" %)":"")+".");
+    var ew=eveWeek(keys);if(ew)lines.push("Check du soir : "+ew.ok+"/"+ew.n+" soirs complets"+(ew.miss?" ; le plus souvent oublié : "+ew.miss+" ("+ew.missN+" fois)":"")+".");
     var wl=S.lifts.filter(function(l){return l.date>=ws&&l.date<=keys[6]}).sort(function(a,b){return -newer(a,b)});
     if(wl.length)lines.push("Charges : "+wl.map(function(l){var dd=parseKey(l.date);return DOW_S[dd.getDay()]+" "+dd.getDate()+" "+l.move+" "+fmt1(l.load)+" kg × "+l.reps+(isPR(l)?" (record)":"")}).join(" ; ")+".");
     return lines.join("\n")}
@@ -953,6 +990,11 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     h+='<section class="card" aria-label="Compléments"><div class="card-h"><span class="tag blue">Compléments</span><span class="hint">une case par jour</span></div>';
     h+=(sl.length?'<div class="supp-edit">'+sl.map(function(nm,i){return '<span class="supp on">'+esc(nm)+'<button data-a="supp-del" data-i="'+i+'" aria-label="Retirer '+esc(nm)+'">×</button></span>'}).join("")+'</div>':'<p class="muted" style="margin:0">Aucun complément suivi.</p>');
     h+='<div class="supp-add"><input id="supp-new" autocomplete="off" placeholder="Ex. Magnésium, vitamine D" value="'+esc(S.newSupp)+'" aria-label="Nouveau complément"><button class="btn" data-a="supp-add"'+(S.newSupp.trim()?'':' disabled')+'>Ajouter</button></div><p class="hint" style="margin:0">Le carnet ne conseille aucune dose : c\'est une simple case à cocher.</p></section>';
+    var el=eveList(),eh=eveHour();
+    h+='<section class="card" aria-label="Check du soir"><div class="card-h"><span class="tag blue">Check du soir</span><span class="hint">sur l\'écran du jour</span></div>';
+    h+=(el.length?'<div class="supp-edit">'+el.map(function(nm,i){return '<span class="supp on">'+esc(nm)+'<button data-a="eve-del" data-i="'+i+'" aria-label="Retirer '+esc(nm)+'">×</button></span>'}).join("")+'</div>':'<p class="muted" style="margin:0">Aucune question : le check du soir est masqué.</p><button class="btn ghost" data-a="eve-reset">Remettre les questions de départ</button>');
+    h+='<div class="supp-add"><input id="eve-new" autocomplete="off" maxlength="40" placeholder="Ex. Tenue de demain prête" value="'+esc(S.newEve)+'" aria-label="Nouvelle question du soir"><button class="btn" data-a="eve-add"'+(S.newEve.trim()&&el.length<10?'':' disabled')+'>Ajouter</button></div>';
+    h+='<div class="row2"><div><label class="fl" for="eve-hour">Affiché à partir de</label><select id="eve-hour">'+[16,17,18,19,20,21,22,23].map(function(x){return '<option value="'+x+'"'+(x===eh?' selected':'')+'>'+x+' h</option>'}).join("")+'</select></div><p class="hint" style="margin:0;align-self:end">Ce qui se prépare la veille. 10 questions maximum.</p></div></section>';
     h+='<section class="card" aria-label="Jours de pesée"><div class="card-h"><span class="tag blue">Jours de pesée</span></div><div class="seg seven" role="group" aria-label="Jours de pesée">'+[1,2,3,4,5,6,0].map(function(x){return '<button data-a="wday" data-v="'+x+'" aria-pressed="'+(wds.indexOf(x)>=0)+'">'+DOW_S[x]+'</button>'}).join("")+'</div></section>';
     if(S.myFoods.length){h+='<section class="card" aria-label="Mes aliments"><div class="card-h"><span class="tag">Mes aliments</span><span class="hint">depuis une étiquette</span></div><div>';
       S.myFoods.forEach(function(f){var fid=String(f[0]).slice(2);h+='<div class="fl-item"><div style="min-width:0"><div class="n">'+esc(f[1])+'</div><div class="m">'+fmt(f[3])+' kcal · '+fmt1(f[4])+' g pour 100 g'+(f[5].length?' · portion '+fmt(f[5][0][1])+' g':'')+'</div></div><div class="fl-act">'+(S.confirmDel===f[0]?'<button class="danger" data-a="del-food" data-id="'+esc(fid)+'">Confirmer</button>':'<button data-a="ask-del" data-id="'+esc(f[0])+'">Supprimer</button>')+'</div></div>'});
@@ -1165,6 +1207,13 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
     else if(a==="del-sess"){snap(k,"suppression séance");day=ensureDay(k);var sid=b.dataset.id;day.sessions=ensureSessions(day).filter(function(x){return x.id!==sid});S.sessOpen=null;scheduleSave(k,0);render()}
     else if(a==="water"){snap(k,"hydratation");day=ensureDay(k);day.water=Math.max(0,Math.min(8000,(+day.water||0)+parseInt(b.dataset.v,10)));scheduleSave(k,400);render()}
     else if(a==="train"){snap(k,"type de journée");day=ensureDay(k);day.training=b.dataset.v==="1";scheduleSave(k,0);render()}
+    else if(a==="eve"){var en=b.dataset.n;snap(k,"check du soir");day=ensureDay(k);if(!day.evening||typeof day.evening!=="object")day.evening={};if(!day.evening.done)day.evening.done={};
+      if(day.evening.done[en])delete day.evening.done[en];else day.evening.done[en]=true;
+      if(eveState(day).complete)day.evening.at=new Date().toISOString();else delete day.evening.at;
+      if(!Object.keys(day.evening.done).length)delete day.evening;scheduleSave(k,0);render()}
+    else if(a==="eve-add"){var ne=S.newEve.trim().slice(0,40),ec=eveList().slice();if(!ne||ec.length>=10)return;if(ec.indexOf(ne)<0)ec.push(ne);S.settings.evening=ec;S.newEve="";saveSettings("Question ajoutée");render()}
+    else if(a==="eve-del"){var ed=eveList().slice(),ei=+b.dataset.i,er2=ed[ei];ed.splice(ei,1);S.settings.evening=ed;saveSettings(er2?"« "+er2+" » retirée":"");render()}
+    else if(a==="eve-reset"){S.settings.evening=EVE_DEFAULT.slice();saveSettings("Questions de départ remises");render()}
     else if(a==="supp"){var sn=b.dataset.n;snap(k,sn);day=ensureDay(k);var son=suppOn(day,sn);day.supps[sn]=!son;if(!day.supps[sn])delete day.supps[sn];if(sn==="Créatine")delete day.creatine;scheduleSave(k,0);render()}
     else if(a==="form"){snap(k,"forme");day=ensureDay(k);day.well=day.well||{};var fv2=+b.dataset.v;if(day.well.form===fv2)delete day.well.form;else day.well.form=fv2;scheduleSave(k,0);render()}
     else if(a==="fav-item"){var fi=(getDay(k).items||[]).filter(function(i){return i.id===b.dataset.id})[0];if(!fi)return;
@@ -1279,6 +1328,8 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
       scheduleSave(k,900)}
     else if(id==="set-coach"){S.settings.coachNote=t.value.slice(0,400);saveSettings("Contexte enregistré")}
     else if(id==="supp-new"){S.newSupp=t.value;var sab=document.querySelector('[data-a="supp-add"]');if(sab)sab.disabled=!t.value.trim()}
+    else if(id==="eve-new"){S.newEve=t.value;var eab=document.querySelector('[data-a="eve-add"]');if(eab)eab.disabled=!t.value.trim()||eveList().length>=10}
+    else if(id==="eve-hour"){var hv=parseInt(t.value,10);if(hv>=0&&hv<=23){S.settings.eveningHour=hv;saveSettings("Heure du check enregistrée")}}
     else if(id.indexOf("lb-")===0){if(!S.label)return;S.label[id.slice(3)]=t.value;var lsb=document.querySelector('[data-a="label-save"]');if(lsb)lsb.disabled=!labelOk(S.label)}
     else if(id.indexOf("su-")===0){S.setup=S.setup||{};S.setup[id.slice(3)]=t.value;var scb=document.querySelector('[data-a="setup-create"]');if(scb)scb.disabled=!setupOk(S.setup)}
     else if(id.indexOf("it-kcal-")===0||id.indexOf("it-prot-")===0){var iid=t.dataset.iid,fld=t.dataset.f,v3=num(t.value);day=ensureDay(k);
@@ -1304,7 +1355,8 @@ details.body summary{font-weight:600;font-size:14px;cursor:pointer;padding:4px 0
       .finally(function(){render()})});
   document.addEventListener("toggle",function(e){if(e.target.id==="free-d")S.freeOpen=e.target.open},true);
   document.addEventListener("keydown",function(e){if(e.key==="Escape"&&(S.sheet||S.liftSheet)){S.sheet=null;S.liftSheet=false;render()}
-    if(e.key==="Enter"&&S.status==="auth"&&e.target&&(e.target.id==="au-email"||e.target.id==="au-pass")){e.preventDefault();authSubmit()}});
+    if(e.key==="Enter"&&S.status==="auth"&&e.target&&(e.target.id==="au-email"||e.target.id==="au-pass")){e.preventDefault();authSubmit()}
+    if(e.key==="Enter"&&e.target&&e.target.id==="eve-new"){e.preventDefault();var eb=document.querySelector('[data-a="eve-add"]');if(eb&&!eb.disabled)eb.click()}});
   document.getElementById("import-file").addEventListener("change",function(e){var file=e.target.files&&e.target.files[0];if(!file)return;
     if(file.size>20e6){S.importInfo={msg:"Fichier trop gros pour un export du carnet.",n:0};render();return}
     var fr=new FileReader();fr.onload=function(){var map=null;try{var j=JSON.parse(fr.result);map=j&&j.docs&&typeof j.docs==="object"?j.docs:j}catch(_){}
